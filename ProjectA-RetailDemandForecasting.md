@@ -479,14 +479,134 @@ FastAPI 服务 \+ Docker 容器 \+ 云服务器
 
 公网可访问的云端机器学习预测服务
 
-## **3\. 标准化项目目录结构（严格遵守）**
+## **3\. 模型评估方法（分类 vs 回归）**
+
+### **3\.1 为什么必须单独学习模型评估？**
+
+模型训练完成后，不能只说“模型效果不错”，必须用标准指标证明它到底好在哪里、差在哪里。面试官通常会追问两个问题：
+
+- 你的任务是分类还是回归？
+
+- 你为什么选择这个评估指标？
+
+本项目的主任务是**回归问题**：预测未来销量数值，例如某商品未来 28 天卖出多少件。但在业务扩展中，也可以转化出**分类问题**：例如判断某商品未来是否会缺货、是否需要补货、是否属于高风险库存。
+
+### **3\.2 回归任务评估指标（本项目重点）**
+
+回归任务预测的是连续数值，适合用于销量、价格、功率、温度、收入等场景。
+
+常用指标：
+
+1. **MAE（Mean Absolute Error，平均绝对误差）**
+
+```text
+MAE = average(|y_true - y_pred|)
+```
+
+解释：预测销量和真实销量平均差多少件。优点是直观，适合向非技术面试官解释。
+
+2. **RMSE（Root Mean Squared Error，均方根误差）**
+
+```text
+RMSE = sqrt(average((y_true - y_pred)^2))
+```
+
+解释：对大误差惩罚更重。如果某些商品预测偏差特别大，RMSE 会明显变高，适合供应链场景。
+
+3. **MAPE（Mean Absolute Percentage Error，平均绝对百分比误差）**
+
+```text
+MAPE = average(|y_true - y_pred| / y_true)
+```
+
+解释：用百分比衡量误差，例如平均预测偏差 12%。注意：当真实销量为 0 或非常小时，MAPE 会不稳定。
+
+4. **R2 Score（决定系数）**
+
+```text
+R2 越接近 1，说明模型解释能力越强
+```
+
+解释：衡量模型能解释多少目标变量变化。它适合做模型对比，但不如 MAE/RMSE 直观。
+
+本项目推荐汇报方式：
+
+|Metric|用途|面试解释|
+|---|---|---|
+|MAE|业务直观误差|平均预测错多少件|
+|RMSE|惩罚大误差|避免少数商品预测严重偏离|
+|MAPE|百分比误差|便于跨商品比较|
+|R2|模型解释能力|衡量模型整体拟合程度|
+
+### **3\.3 分类任务评估指标（业务扩展必懂）**
+
+分类任务预测的是类别标签，适合用于是否缺货、是否欺诈、是否流失、是否需要维护等场景。
+
+如果把本项目扩展成“未来 28 天是否会缺货”，就可以定义：
+
+```text
+1 = Stockout Risk
+0 = Normal Inventory
+```
+
+常用指标：
+
+1. **Accuracy（准确率）**
+
+```text
+Accuracy = 预测正确样本数 / 总样本数
+```
+
+解释：整体预测对了多少。但如果数据极度不平衡，例如 95% 商品都不会缺货，Accuracy 可能虚高。
+
+2. **Precision（精确率）**
+
+```text
+Precision = TP / (TP + FP)
+```
+
+解释：模型判断“会缺货”的商品里，真的缺货的比例。适合控制误报成本。
+
+3. **Recall（召回率）**
+
+```text
+Recall = TP / (TP + FN)
+```
+
+解释：所有真正会缺货的商品里，模型成功抓住了多少。供应链预警通常更重视 Recall，因为漏报缺货会直接损失收入。
+
+4. **F1 Score**
+
+```text
+F1 = 2 * Precision * Recall / (Precision + Recall)
+```
+
+解释：Precision 和 Recall 的综合平衡，适合类别不平衡场景。
+
+5. **ROC-AUC**
+
+解释：衡量模型区分正负样本的能力，越接近 1 越好。适合评估二分类模型整体排序能力。
+
+分类指标选择建议：
+
+|业务目标|优先指标|原因|
+|---|---|---|
+|不想误报太多|Precision|减少无效补货和运营干扰|
+|不想漏掉风险|Recall|尽量抓住真正会缺货的商品|
+|正负样本不平衡|F1 / ROC-AUC|比 Accuracy 更可靠|
+
+### **3\.4 本项目面试回答模板**
+
+本项目核心是销量预测，所以我主要使用 MAE、RMSE、MAPE 和 R2 评估回归模型。MAE 方便解释平均销量误差，RMSE 会更重视大偏差，适合供应链场景，因为严重低估需求会导致缺货。除此之外，如果把预测结果进一步转化成“是否缺货”的风险标签，也可以用 Precision、Recall、F1 和 ROC-AUC 评估分类预警效果。
+
+## **4\. 标准化项目目录结构（严格遵守）**
 
 |Plain Text<br>retail\-demand\-forecasting/<br>│<br>├── data/                \# 数据集存放目录<br>│<br>├── notebooks/           \# EDA、实验分析Notebook<br>│<br>├── src/                 \# 核心源码<br>│    ├── feature\_engineering\.py  \# 特征工程脚本<br>│    ├── train\.py                \# 模型训练脚本<br>│    ├── predict\.py              \# 预测推理脚本<br>│<br>├── api/                 \# 接口服务代码<br>│    ├── main\.py         \# FastAPI 主服务<br>│<br>├── models/              \# 保存训练好的模型文件<br>│<br>├── dashboard/           \# SHAP可视化、分析看板<br>│<br>├── Dockerfile           \# 容器化配置文件<br>│<br>├── requirements\.txt     \# 项目依赖清单<br>│<br>└── README\.md            \# 项目总文档|
 |---|
 
-## **4\. GitHub 最终展示标准（求职导向）**
+## **5\. GitHub 最终展示标准（求职导向）**
 
-### **4\.1 核心模块展示**
+### **5\.1 核心模块展示**
 
 - **Problem**：清晰阐述28天零售销量预测业务问题与价值
 
@@ -506,7 +626,7 @@ Data → Feature Engineering → XGBoost/LightGBM → Forecast API → AWS Cloud
 
 - **Demo**：公网在线API调用示例、项目演示
 
-## **5\. 面试考点全覆盖清单**
+## **6\. 面试考点全覆盖清单**
 
 本项目完整覆盖AWS/微软ML、SDE实习面试核心考点：
 
@@ -518,14 +638,13 @@ Data → Feature Engineering → XGBoost/LightGBM → Forecast API → AWS Cloud
 |高阶时序特征工程|✅|
 |XGBoost/LightGBM 模型原理与调优|✅|
 |模型评估与指标选型|✅|
+|分类与回归评估指标区分|✅|
 |机器学习API服务开发|✅|
 |Docker 容器化工程|✅|
 |云端部署与云服务使用|✅|
 |端到端ML系统设计|✅|
 
-## **6\. 项目核心优势总结（面试口述版）**
+## **7\. 项目核心优势总结（面试口述版）**
 
 This is an end\-to\-end industrial\-level retail demand forecasting project\. Instead of focusing on Kaggle competition rankings, I built a complete machine learning system from business analysis, feature engineering, model iteration to API development, containerization and cloud deployment\. The project solves real Amazon supply chain inventory optimization problems, covers core ML engineering and cloud development skills, and fully aligns with the workflow of professional ML engineers\.
-
-
 
